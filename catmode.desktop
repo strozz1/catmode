@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Cat Mode
+Comment=Protect your keyboard from your cat
+Exec=catmode
+Icon=catmode
+Terminal=false
+Categories=Utility;

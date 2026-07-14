@@ -1,0 +1,16 @@
+# Build
+*.o
+*.a
+*.so
+*.so.*
+*.out
+
+# Executables
+catmode
+overlay
+
+# Dependency files
+*.d
+
+# macOS
+.DS_Store
