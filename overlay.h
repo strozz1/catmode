@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <xcb/xcb.h>
+#include "animation.h"
 
 typedef struct {
   int16_t x, y;
@@ -45,6 +46,11 @@ typedef struct {
   monitor_t *monitors;
   int mon_no;
   char *image_path;
+  char *spritesheet_path;
+
+
+  //animation
+  animation_t *anim;
 } overlay_t;
 
 overlay_t *overlay_create(int16_t x, int16_t y, uint16_t w, uint16_t h);

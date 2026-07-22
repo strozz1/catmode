@@ -20,6 +20,20 @@ void draw_png_centered(cairo_t *cr, const char *path, double screen_w,
   cairo_surface_destroy(img);
 }
 
+void draw_anim(cairo_t *cr, animation_t *anim, double screen_w,
+               double screen_h) {
+  frame_t *frame = &anim->frames[anim->idx];
+
+  cairo_surface_mark_dirty(frame->surface);
+
+  int x = (screen_w - frame->width) / 2;
+  int y = (screen_h - frame->height) / 2;
+
+  cairo_set_source_surface(cr, frame->surface, x, y);
+
+  cairo_paint(cr);
+}
+
 /*
 #include <librsvg/rsvg.h>
 
@@ -43,32 +57,34 @@ rsvg_handle_new_from_file(path, &error); if (!handle) { g_error_free(error);
 void draw_text(cairo_t *cr, const char *text, double x, double y, int size,
                font_type_t font) {
   const char *font_name;
-
   switch (font) {
   case FONT_REGULAR:
     font_name = "Inter";
     break;
-
   case FONT_MEDIUM:
     font_name = "Inter Medium";
     break;
-
   case FONT_BOLD:
     font_name = "Inter Bold";
     break;
-
   case FONT_ITALIC:
     font_name = "Inter Italic";
     break;
-
   case FONT_MONO:
     font_name = "JetBrains Mono";
     break;
-
   default:
     font_name = "Sans";
     break;
   }
+
+  cairo_font_options_t *font_options = cairo_font_options_create();
+  cairo_font_options_set_antialias(font_options, CAIRO_ANTIALIAS_GRAY);
+  cairo_font_options_set_hint_style(font_options, CAIRO_HINT_STYLE_SLIGHT);
+  cairo_font_options_set_hint_metrics(font_options, CAIRO_HINT_METRICS_ON);
+  cairo_set_font_options(cr, font_options);
+  cairo_font_options_destroy(font_options);
+
   PangoLayout *layout = pango_cairo_create_layout(cr);
   pango_layout_set_text(layout, text, -1);
 
@@ -77,18 +93,24 @@ void draw_text(cairo_t *cr, const char *text, double x, double y, int size,
   pango_layout_set_font_description(layout, desc);
   pango_font_description_free(desc);
 
-  cairo_set_source_rgba(cr, 1, 1, 1, 1);
-  // cairo_move_to(cr, x, y);
+  PangoAttrList *attrs = pango_attr_list_new();
+  pango_attr_list_insert(attrs, pango_attr_letter_spacing_new(20));
+  pango_layout_set_attributes(layout, attrs);
+  pango_attr_list_unref(attrs);
 
   PangoRectangle ink_rect, logical_rect;
-
   pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
+  double draw_x = round(x - logical_rect.width / 2.0);
+  double draw_y = round(y - logical_rect.height / 2.0);
 
-  double draw_x = x - logical_rect.width / 2.0;
-  double draw_y = y - logical_rect.height / 2.0;
+  cairo_save(cr);
+  cairo_set_source_rgba(cr, 0, 0, 0, 0.35);
+  cairo_move_to(cr, draw_x + 1, draw_y + 1);
+  pango_cairo_show_layout(cr, layout);
+  cairo_restore(cr);
 
+  cairo_set_source_rgba(cr, 0.94, 0.95, 0.97, 1);
   cairo_move_to(cr, draw_x, draw_y);
-
   pango_cairo_show_layout(cr, layout);
 
   g_object_unref(layout);

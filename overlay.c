@@ -1,4 +1,8 @@
 #include "overlay.h"
+#include <time.h>
+#include <stdint.h>
+#include <time.h>
+#include <unistd.h>
 #include <xcb/randr.h>
 
 /*Obtain the ARGB visual (@p `xcb_visualtype_t`) for TRUE COLOR(32 bits).
@@ -76,7 +80,6 @@ int overlay_get_monitor_count(overlay_t *ov) {
   }
 
   free(res);
-  ov->mon_no = count;
 
   return count;
 }
@@ -117,13 +120,12 @@ overlay_t *overlay_create(int16_t x, int16_t y, uint16_t w, uint16_t h) {
   ov->height = h;
   ov->running = 1;
   overlay_setup_surface(ov);
-
   return ov;
 }
 
 overlay_t *overlay_create_on_monitor(int monitor) {
   overlay_t *ov = setup();
-  overlay_get_monitor_count(ov);
+  ov->mon_no = overlay_get_monitor_count(ov);
   ov->monitors = calloc(ov->mon_no, sizeof(monitor_t));
   for (int i = 0; i < ov->mon_no; i++) {
     overlay_get_monitor(ov, i, &ov->monitors[i]);
@@ -225,7 +227,8 @@ void overlay_repaint(overlay_t *ov) {
 
   draw_rounded_rectangle(cr, 0, 0, ov->width, ov->height, 18);
   cairo_fill(cr);
-  draw_png_centered(cr, ov->image_path, ov->width, ov->height);
+  draw_anim(cr, ov->anim, ov->width, ov->height);
+  // draw_png_centered(cr, ov->image_path, ov->width, ov->height);
 
   draw_text(cr, "Cat Mode Enabled", ov->width * 0.5, ov->height * 0.7, 58,
             FONT_BOLD);
@@ -242,7 +245,7 @@ void overlay_repaint(overlay_t *ov) {
 
 void overlay_handle_click(overlay_t *ov, int16_t x, int16_t y, uint8_t button) {
   if (button != 1)
-    return; 
+    return;
 
   for (size_t i = 0; i < ov->n_clickables; i++) {
     clickable_t *c = &ov->clickables[i];
@@ -266,7 +269,7 @@ void overlay_handle_hover(overlay_t *ov, int16_t x, int16_t y) {
 
   if (new_hover != ov->current_hover) {
     ov->current_hover = new_hover;
-    overlay_repaint(ov); 
+    overlay_repaint(ov);
   }
 }
 
@@ -310,7 +313,7 @@ void grab_keyboard_and_mouse(overlay_t *ov) {
       xcb_grab_pointer_reply(ov->conn, pcookie, NULL);
 
   if (!preply || preply->status != XCB_GRAB_STATUS_SUCCESS) {
-    fprintf(stderr, "Couldn't grab pointer\n");
+    fprintf(stderr, "Couldn't grab mouse\n");
   } else {
     fprintf(stderr, "Mouse grabbed\n");
   }
@@ -318,52 +321,87 @@ void grab_keyboard_and_mouse(overlay_t *ov) {
   free(preply);
 }
 
+uint64_t now(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+
+  return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
+
 void overlay_run(overlay_t *ov) {
-  xcb_generic_event_t *event;
+  ov->anim = anim_from_spritesheet(ov->spritesheet_path, 12);
   grab_keyboard_and_mouse(ov);
 
-  while (ov->running && (event = xcb_wait_for_event(ov->conn))) {
-    uint8_t type = event->response_type & ~0x80;
+  const uint64_t frame_ns = 1000000000ULL / ov->anim->fps;
 
-    switch (type) {
-    case XCB_EXPOSE: {
-      xcb_expose_event_t *ev = (xcb_expose_event_t *)event;
-      if (ev->count == 0) {
-        overlay_repaint(ov);
+  struct timespec next;
+  clock_gettime(CLOCK_MONOTONIC, &next);
+
+  while (ov->running) {
+
+    xcb_generic_event_t *event;
+    while ((event = xcb_poll_for_event(ov->conn))) {
+
+      uint8_t type = event->response_type & ~0x80;
+
+      switch (type) {
+
+      case XCB_EXPOSE: {
+        xcb_expose_event_t *ev = (xcb_expose_event_t *)event;
+        if (ev->count == 0)
+          overlay_repaint(ov);
+        break;
       }
-      break;
-    }
-    case XCB_KEY_PRESS: {
-      xcb_key_press_event_t *ev = (xcb_key_press_event_t *)event;
-      if ((ev->state & XCB_MOD_MASK_CONTROL) && ev->detail == 41) { // F
-        fprintf(stderr, "Resuming activity: no curious paws around...\n");
-        xcb_ungrab_keyboard(ov->conn, XCB_CURRENT_TIME);
-        xcb_ungrab_pointer(ov->conn, XCB_CURRENT_TIME);
-        xcb_flush(ov->conn);
+
+      case XCB_KEY_PRESS: {
+        xcb_key_press_event_t *ev = (xcb_key_press_event_t *)event;
+
+        if ((ev->state & XCB_MOD_MASK_CONTROL) && ev->detail == 41) {
+
+          fprintf(stderr, "Resuming activity: no curious paws around...\n");
+
+          xcb_ungrab_keyboard(ov->conn, XCB_CURRENT_TIME);
+          xcb_ungrab_pointer(ov->conn, XCB_CURRENT_TIME);
+          xcb_flush(ov->conn);
+
+          ov->running = 0;
+        }
+        break;
+      }
+
+      case XCB_BUTTON_PRESS: {
+        xcb_button_press_event_t *ev = (xcb_button_press_event_t *)event;
+
+        overlay_handle_click(ov, ev->event_x, ev->event_y, ev->detail);
+        break;
+      }
+
+      case XCB_MOTION_NOTIFY: {
+        xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)event;
+
+        overlay_handle_hover(ov, ev->event_x, ev->event_y);
+        break;
+      }
+
+      case XCB_DESTROY_NOTIFY:
         ov->running = 0;
+        break;
       }
-      break;
-    }
-    case XCB_BUTTON_PRESS: {
-      xcb_button_press_event_t *ev = (xcb_button_press_event_t *)event;
-      overlay_handle_click(ov, ev->event_x, ev->event_y, ev->detail);
-      break;
-    }
-    case XCB_MOTION_NOTIFY: {
-      xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)event;
-      overlay_handle_hover(ov, ev->event_x, ev->event_y);
-      break;
-    }
-    case XCB_DESTROY_NOTIFY:
-      ov->running = 0;
-      break;
 
-    default:
-      // fprintf(stderr, "Response not supported code(%d)\n",
-      //       event->response_type);
-      break;
+      free(event);
     }
 
-    free(event);
+    anim_next_frame(ov->anim);
+    overlay_repaint(ov);
+
+    next.tv_nsec += frame_ns;
+
+    while (next.tv_nsec >= 1000000000L) {
+      next.tv_nsec -= 1000000000L;
+      next.tv_sec++;
+    }
+
+    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
   }
 }

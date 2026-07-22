@@ -3,19 +3,22 @@
 Cat Mode is a lightweight X11 overlay for Linux that protects your keyboard and mouse from curious cats (or accidental input).
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="Cat Mode screenshot" width="900">
+  <img src="assets/screenshot.gif" alt="Cat Mode screenshot" width="900">
 </p>
 
 When enabled, it displays a fullscreen translucent overlay with a friendly cat, blocks user input, and can be dismissed using a predefined key combination.
 
+It supports animated sprites, allowing the overlay to display smooth cat animations while the input is locked.
 
 ## Dependencies
+
 - XCB
 - XCB RandR
 - Cairo
 - Pango / Pangocairo
-## Build
+- stb_image
 
+## Build
 ```bash
 make
 ```

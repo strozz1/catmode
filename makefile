@@ -1,9 +1,11 @@
 CC = gcc
 
-CFLAGS = -Wall -Wextra -std=c11 $(shell pkg-config --cflags xcb cairo cairo-xcb pangocairo)
-LDFLAGS = $(shell pkg-config --libs xcb xcb-randr cairo cairo-xcb pangocairo)
+CFLAGS = -Wall -Wextra -std=c11 \
+	$(shell pkg-config --cflags xcb xcb-randr cairo cairo-xcb pangocairo)
 
-SRC = main.c overlay.c cairo.c
+LDFLAGS = $(shell pkg-config --libs xcb xcb-randr cairo cairo-xcb pangocairo) -lm
+
+SRC = main.c overlay.c cairo.c animation.c
 OBJ = $(SRC:.c=.o)
 
 TARGET = catmode
@@ -33,6 +35,7 @@ oldinstall: $(TARGET)
 		mv $(TARGET) /usr/local/bin/catmode
 		mkdir /usr/local/share/catmode  -p
 		cp cat.png /usr/local/share/catmode/background.png
+		cp catsheet.png /usr/local/share/catmode/catsheet.png
 
 
 install:
@@ -43,6 +46,7 @@ install:
 
 	install -m755 catmode $(DESTDIR)$(BINDIR)
 	install -m644 assets/catmode.png $(DESTDIR)$(DATADIR)
+	install -m644 assets/catsheet.png $(DESTDIR)$(DATADIR)
 	install -m644 assets/catmode.png $(DESTDIR)$(ICONDIR)
 	install -m644 catmode.desktop $(DESTDIR)$(APPDIR)
 
