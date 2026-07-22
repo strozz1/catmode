@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ANIMATION_H
+#define ANIMATION_H
 #include <cairo/cairo.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,3 +44,4 @@ typedef struct {
 animation_t *anim_from_spritesheet(const char *path, int fps);
 frame_t *anim_next_frame(animation_t *anim);
 void anim_destroy(animation_t *anim);
+#endif
