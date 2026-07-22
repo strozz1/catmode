@@ -37,7 +37,7 @@ My cat always manages to mess up my PC whenever I step away. I'm also too lazy
 to lock my computer and type my password every time I get up, so I built a lil
 tool to just block keyboard and mouse input. And to unblock I just press Cntrl-F. :)
 
-## Advisory
+## Note
 When I started this project, I knew nothing about X11 or low-level Linux graphics programming. 
 I used Claude as a learning companion, asking lots of questions and having it explain
 each concept as I went. It helped me understand how X11, XCB, Cairo, and the rest of the stack work.
